@@ -1,37 +1,41 @@
 import streamlit as st
 import pandas as pd
 import joblib
-import numpy as np
 
-# Load model dan label encoder
+# Load model & encoder
 model = joblib.load("model_preferensi.pkl")
 label_encoder = joblib.load("label_encoder.pkl")
 
-# Load data asli (misalnya untuk ditampilkan)
+# Load data wisata
 df = pd.read_csv("data_tempat_wisata_bali.csv")
+df_clean = df.dropna(subset=['rating'])
 
 st.title("🧭 NusaBali - Rekomendasi Tempat Wisata di Bali")
 
-st.markdown("Masukkan preferensi kamu, dan kami akan merekomendasikan jenis wisata yang cocok.")
+st.markdown("Masukkan preferensimu, kami akan rekomendasikan tempat yang cocok!")
 
-# Input dari user
-kategori = st.selectbox("Kategori Tempat", df['kategori'].unique())
-kabupaten = st.selectbox("Kabupaten/Kota", df['kabupaten_kota'].unique())
+# Input pengguna
+kategori = st.selectbox("Kategori", df_clean['kategori'].unique())
+kabupaten = st.selectbox("Kabupaten/Kota", df_clean['kabupaten_kota'].unique())
 rating = st.slider("Rating", 1.0, 5.0, 4.5)
-latitude = st.number_input("Latitude", value=-8.5)
-longitude = st.number_input("Longitude", value=115.2)
 
-# Prediksi ketika tombol ditekan
 if st.button("Rekomendasikan"):
+    # Buat DataFrame input
     input_data = pd.DataFrame({
         'kategori': [kategori],
         'kabupaten_kota': [kabupaten],
-        'rating': [rating],
-        'latitude': [latitude],
-        'longitude': [longitude]
+        'rating': [rating]
     })
 
-    prediction = model.predict(input_data)
-    predicted_label = label_encoder.inverse_transform(prediction)[0]
+    # Prediksi preferensi
+    predicted_pref = model.predict(input_data)
+    pref_label = label_encoder.inverse_transform(predicted_pref)[0]
 
-    st.success(f"🎯 Rekomendasi wisata kamu adalah: **{predicted_label}**")
+    # Cari tempat wisata dengan preferensi yang sama
+    rekomendasi = df_clean[df_clean['preferensi'] == pref_label]
+
+    if not rekomendasi.empty:
+        st.success(f"Rekomendasi wisata berdasarkan preferensi **{pref_label}**:")
+        st.write(rekomendasi[['nama', 'kategori', 'kabupaten_kota', 'rating', 'link']].reset_index(drop=True))
+    else:
+        st.warning("Maaf, belum ada tempat wisata yang cocok ditemukan.")
